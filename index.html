@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Color Dodge</title>
+<style>
+  body {
+    margin: 0;
+    background: black;
+    overflow: hidden;
+    font-family: Arial, sans-serif;
+    color: white;
+    user-select: none;
+  }
+  canvas {
+    display: block;
+    background: #000;
+    margin: 0 auto;
+  }
+  #gameOverScreen {
+    position: absolute;
+    top: 40%;
+    width: 100%;
+    text-align: center;
+    display: none;
+  }
+  button {
+    padding: 10px 20px;
+    font-size: 1rem;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+
+<canvas id="gameCanvas"></canvas>
+<div id="gameOverScreen">
+  <h1>Game Over</h1>
+  <p id="finalScore"></p>
+  <button onclick="startGame()">Restart</button>
+</div>
+
+<script>
+  const canvas = document.getElementById("gameCanvas");
+  const ctx = canvas.getContext("2d");
+  let width, height;
+
+  function resize() {
+    width = window.innerWidth;
+    height = window.innerHeight;
+    canvas.width = width;
+    canvas.height = height;
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  // Player
+  const playerRadius = 30;
+  let playerX = width / 2;
+  const playerY = height - 80;
+  const playerSpeed = 10;
+
+  // Blocks
+  const blocks = [];
+  const blockSize = 40;
+  const spawnInterval = 1000; // ms
+  let lastSpawn = 0;
+
+  // Game state
+  let score = 0;
+  let isGameOver = false;
+
+  // Controls
+  const keys = {};
+  window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
+  window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+
+  function spawnBlock() {
+    const x = Math.random() * (width - blockSize);
+    const isDanger = Math.random() < 0.5; // 50% chance red or green
+    blocks.push({
+      x,
+      y: -blockSize,
+      speed: 2 + Math.random() * 3,
+      isDanger,
+    });
+  }
+
+  function update(delta) {
+    if (isGameOver) return;
+
+    // Move player
+    if (keys['arrowleft'] || keys['a']) {
+      playerX -= playerSpeed;
+    }
+    if (keys['arrowright'] || keys['d']) {
+      playerX += playerSpeed;
+    }
+    playerX = Math.min(Math.max(playerRadius, playerX), width - playerRadius);
+
+    // Spawn blocks
+    if (Date.now() - lastSpawn > spawnInterval) {
+      spawnBlock();
+      lastSpawn = Date.now();
+    }
+
+    // Update blocks
+    for (let i = blocks.length - 1; i >= 0; i--) {
+      blocks[i].y += blocks[i].speed;
+
+      // Check collision with player (circle-rect collision)
+      if (
+        blocks[i].y + blockSize > playerY - playerRadius &&
+        blocks[i].y < playerY + playerRadius &&
+        blocks[i].x + blockSize > playerX - playerRadius &&
+        blocks[i].x < playerX + playerRadius
+      ) {
+        if (blocks[i].isDanger) {
+          gameOver();
+          return;
+        } else {
+          score++;
+          blocks.splice(i, 1);
+          continue;
+        }
+      }
+
+      // Remove if off screen
+      if (blocks[i].y > height) {
+        blocks.splice(i, 1);
+      }
+    }
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, width, height);
+
+    // Draw player
+    ctx.fillStyle = 'blue';
+    ctx.beginPath();
+    ctx.arc(playerX, playerY, playerRadius, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Draw blocks
+    blocks.forEach(block => {
+      ctx.fillStyle = block.isDanger ? 'red' : 'green';
+      ctx.fillRect(block.x, block.y, blockSize, blockSize);
+    });
+
+    // Draw score
+    ctx.fillStyle = 'white';
+    ctx.font = '24px Arial';
+    ctx.fillText('Score: ' + score, 20, 40);
+  }
+
+  function gameOver() {
+    isGameOver = true;
+    document.getElementById('finalScore').textContent = 'Your Score: ' + score;
+    document.getElementById('gameOverScreen').style.display = 'block';
+  }
+
+  function startGame() {
+    score = 0;
+    blocks.length = 0;
+    playerX = width / 2;
+    isGameOver = false;
+    document.getElementById('gameOverScreen').style.display = 'none';
+    lastSpawn = Date.now();
+    loop();
+  }
+
+  let lastTime = 0;
+  function loop(timestamp = 0) {
+    if (!lastTime) lastTime = timestamp;
+    const delta = timestamp - lastTime;
+    lastTime = timestamp;
+
+    update(delta);
+    draw();
+
+    if (!isGameOver) {
+      requestAnimationFrame(loop);
+    }
+  }
+
+  startGame();
+</script>
+
+</body>
+</html>
